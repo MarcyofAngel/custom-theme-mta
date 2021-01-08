@@ -1,0 +1,106 @@
+ID: custom-theme-mta
+_schema-version: '2.1'
+parameters:
+  deploy_mode: html5-repo
+version: 0.0.1
+modules:
+  - name: custom-theme-mta-approuter
+    type: approuter.nodejs
+    path: custom-theme-mta-approuter
+    parameters:
+      disk-quota: 256M
+      memory: 256M
+    requires:
+      - name: custom-theme-mta_html5_repo_runtime
+      - name: portal_resources_custom-theme-mta
+      - name: custom-theme-mta-uaa
+      - name: custom-theme-mta-dest
+  - name: custom-theme-mta_ui_deployer
+    type: com.sap.html5.application-content
+    path: custom-theme-mta_ui_deployer
+    requires:
+      - name: custom-theme-mta_html5_repo_host
+    build-parameters:
+      requires:
+        - name: app
+          artifacts:
+            - './*'
+          target-path: resources/app
+  - name: custom-theme-mta-db
+    type: hdb
+    path: db
+    parameters:
+      memory: 256M
+      disk-quota: 512M
+    requires:
+      - name: custom-theme-mta-db-hdi-container
+  - name: custom-theme-mta-srv
+    type: nodejs
+    path: srv
+    parameters:
+      memory: 512M
+      disk-quota: 512M
+    provides:
+      - name: srv_api
+        properties:
+          url: '${default-url}'
+    requires:
+      - name: custom-theme-mta-db-hdi-container
+      - name: custom-theme-mta-uaa
+  - name: app
+    type: html5
+    path: app
+    build-parameters:
+      builder: custom
+      commands:
+        - npm install
+        - npm run build
+      supported-platforms: []
+      build-result: dist
+  - name: custom-theme-launchpad
+    type: com.sap.application.portal.content
+    path: custom-theme-launchpad
+    requires:
+      - name: portal_resources_custom-theme-mta
+        parameters:
+          service-key:
+            name: content-deploy-key
+            config:
+              content-endpoint: developer
+          content-target: true
+      - name: uaa_custom-theme-mta
+      - name: custom-theme-mta_html5_repo_host
+      - name: custom-theme-mta_ui_deployer
+resources:
+  - name: custom-theme-mta_html5_repo_runtime
+    parameters:
+      service-plan: app-runtime
+      service: html5-apps-repo
+    type: org.cloudfoundry.managed-service
+  - name: custom-theme-mta_html5_repo_host
+    parameters:
+      service-plan: app-host
+      service: html5-apps-repo
+    type: org.cloudfoundry.managed-service
+  - name: custom-theme-mta-db-hdi-container
+    type: com.sap.xs.hdi-container
+    properties:
+      hdi-container-name: '${service-name}'
+  - name: custom-theme-mta-uaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service-plan: application
+      service: xsuaa
+      config:
+        xsappname: 'custom-theme-mta-${space}'
+        tenant-mode: dedicated
+  - name: custom-theme-mta-dest
+    parameters:
+      service-plan: lite
+      service: destination
+    type: org.cloudfoundry.managed-service
+  - name: portal_resources_custom-theme-mta
+    parameters:
+      service-plan: standard
+      service: portal
+    type: org.cloudfoundry.managed-service
